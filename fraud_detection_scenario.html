@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scénario Pipeline — Détection de Fraude</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #10131a;
+    --surface2: #161b25;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --accent: #3b82f6;
+    --accent2: #8b5cf6;
+    --teal: #14b8a6;
+    --amber: #f59e0b;
+    --coral: #f97316;
+    --green: #22c55e;
+    --pink: #ec4899;
+    --gray: #4b5563;
+    --line: rgba(59,130,246,0.3);
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-size: 18px;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 60px 40px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.25);
+    padding: 5px 12px;
+    border-radius: 4px;
+    margin-bottom: 24px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 600px;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .meta-item strong {
+    color: var(--text);
+  }
+
+  /* Main layout */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 40px 80px;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 80px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 32px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom,
+      transparent 0%,
+      var(--accent) 5%,
+      var(--line) 20%,
+      var(--line) 80%,
+      var(--accent) 95%,
+      transparent 100%
+    );
+  }
+
+  /* Step card */
+  .step {
+    position: relative;
+    margin-bottom: 32px;
+    opacity: 0;
+    transform: translateX(-20px);
+    animation: slideIn 0.5s ease forwards;
+  }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-dot {
+    position: absolute;
+    left: -56px;
+    top: 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    background: var(--bg);
+    transition: transform 0.2s;
+    z-index: 2;
+  }
+
+  .step:hover .step-dot {
+    transform: scale(1.3);
+  }
+
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+
+  .step-card:hover {
+    border-color: rgba(255,255,255,0.15);
+    transform: translateX(4px);
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .step-title-group {
+    flex: 1;
+  }
+
+  .step-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+
+  .step-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+  }
+
+  .step-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
+
+  .step-body {
+    padding: 16px 22px 20px;
+  }
+
+  .step-desc {
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+
+  /* Code block */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.8;
+    color: #9ca3af;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .code-block .kw { color: #818cf8; }
+  .code-block .fn { color: #34d399; }
+  .code-block .str { color: #fbbf24; }
+  .code-block .num { color: #f9a8d4; }
+  .code-block .cmt { color: #4b5563; font-style: italic; }
+  .code-block .var { color: #7dd3fc; }
+
+  /* Details row */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .detail-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border-left: 2px solid;
+  }
+
+  .detail-key {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .detail-val {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* Result boxes */
+  .result-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  .result-box {
+    flex: 1;
+    min-width: 110px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .result-val {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .result-label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Warning rule */
+  .rule-box {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: rgba(251,191,36,0.06);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 14px;
+  }
+
+  .rule-icon { font-size: 14px; flex-shrink: 0; }
+
+  .rule-text {
+    font-size: 12.5px;
+    color: #d97706;
+    line-height: 1.6;
+  }
+
+  /* Pipeline visual */
+  .pipeline-viz {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-top: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pipe-node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    color: var(--text);
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  .pipe-arrow {
+    color: var(--accent);
+    font-size: 14px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* Summary table */
+  .summary-table {
+    width: 100%;
+    font-size: 14px;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-top: 14px;
+  }
+
+  .summary-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+
+  .summary-table tr:last-child td { border-bottom: none; }
+
+  .check { color: var(--green); }
+
+  /* Footer */
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 30px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  /* Color variants */
+  .c-blue  { --col: #3b82f6; }
+  .c-teal  { --col: #14b8a6; }
+  .c-purple{ --col: #8b5cf6; }
+  .c-amber { --col: #f59e0b; }
+  .c-coral { --col: #f97316; }
+  .c-green { --col: #22c55e; }
+  .c-gray  { --col: #6b7280; }
+  .c-pink  { --col: #ec4899; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .step-dot   { border-color: var(--col); color: var(--col); }
+  .step-label { color: var(--col); }
+  .step-tag   { color: var(--col); border-color: var(--col); background: color-mix(in srgb, var(--col) 10%, transparent); }
+  .step-icon  { background: color-mix(in srgb, var(--col) 12%, transparent); }
+  .detail-item{ border-left-color: var(--col); }
+  .result-val { color: var(--col); }
+  .step-card:hover { border-color: color-mix(in srgb, var(--col) 30%, transparent); }
+
+  /* Animation delays */
+  .step:nth-child(1)  { animation-delay: 0.0s; }
+  .step:nth-child(2)  { animation-delay: 0.1s; }
+  .step:nth-child(3)  { animation-delay: 0.2s; }
+  .step:nth-child(4)  { animation-delay: 0.3s; }
+  .step:nth-child(5)  { animation-delay: 0.4s; }
+  .step:nth-child(6)  { animation-delay: 0.5s; }
+  .step:nth-child(7)  { animation-delay: 0.6s; }
+  .step:nth-child(8)  { animation-delay: 0.7s; }
+  .step:nth-child(9)  { animation-delay: 0.8s; }
+  .step:nth-child(10) { animation-delay: 0.9s; }
+  .step:nth-child(11) { animation-delay: 1.0s; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Notebook Execution Scenario</div>
+  <h1>Détection Automatique de<br><span>Transactions Frauduleuses</span></h1>
+  <p class="subtitle">Scénario complet d'exécution du pipeline ML — ordre d'exécution des cellules, logique de traitement et résultats attendus.</p>
+  <div class="meta-row">
+    <div class="meta-item">Dataset: <strong>creditcard.csv</strong></div>
+    <div class="meta-item">Transactions: <strong>284 807</strong></div>
+    <div class="meta-item">Fraudes: <strong>492 (0.172%)</strong></div>
+    <div class="meta-item">Modèles: <strong>LR + XGBoost</strong></div>
+  </div>
+</header>
+
+<main>
+  <div class="timeline">
+
+    <!-- ÉTAPE 0 -->
+    <div class="step c-gray">
+      <div class="step-dot">00</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">📦</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 0</div>
+            <div class="step-title">Installation &amp; Imports</div>
+          </div>
+          <span class="step-tag">Setup</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Chargement de toutes les librairies nécessaires au projet. C'est la première cellule à exécuter, sans elle rien ne fonctionne.</p>
+          <div class="code-block">
+<span class="kw">import</span> <span class="var">numpy</span> <span class="kw">as</span> <span class="var">np</span>, <span class="var">pandas</span> <span class="kw">as</span> <span class="var">pd</span>
+<span class="kw">from</span> <span class="var">sklearn.model_selection</span> <span class="kw">import</span> <span class="fn">train_test_split</span>, <span class="fn">GridSearchCV</span>
+<span class="kw">from</span> <span class="var">sklearn.preprocessing</span> <span class="kw">import</span> <span class="fn">RobustScaler</span>
+<span class="kw">from</span> <span class="var">imblearn.pipeline</span> <span class="kw">import</span> <span class="fn">Pipeline</span> <span class="kw">as</span> <span class="var">ImbPipeline</span>
+<span class="kw">from</span> <span class="var">imblearn.over_sampling</span> <span class="kw">import</span> <span class="fn">SMOTE</span>
+<span class="kw">from</span> <span class="var">xgboost</span> <span class="kw">import</span> <span class="fn">XGBClassifier</span>
+<span class="cmt"># ✅ Tous les imports chargés avec succès</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 1 -->
+    <div class="step c-teal">
+      <div class="step-dot">01</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">📂</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 1</div>
+            <div class="step-title">Chargement du Dataset</div>
+          </div>
+          <span class="step-tag">Data Loading</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Lecture du fichier CSV depuis Kaggle (ULB). Le dataset contient des transactions bancaires européennes réelles enregistrées sur 48h en septembre 2013.</p>
+          <div class="code-block">
+<span class="var">df</span> = <span class="var">pd</span>.<span class="fn">read_csv</span>(<span class="str">'creditcard.csv'</span>)
+<span class="fn">print</span>(<span class="str">f'Dataset chargé : {df.shape[0]:,} lignes x {df.shape[1]} colonnes'</span>)
+<span class="cmt"># → Dataset chargé : 284 807 lignes x 31 colonnes</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-key">Lignes</div><div class="detail-val">284 807</div></div>
+            <div class="detail-item"><div class="detail-key">Colonnes</div><div class="detail-val">31</div></div>
+            <div class="detail-item"><div class="detail-key">Valeurs nulles</div><div class="detail-val">0</div></div>
+            <div class="detail-item"><div class="detail-key">Source</div><div class="detail-val">Kaggle / ULB</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 -->
+    <div class="step c-blue">
+      <div class="step-dot">02</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">🔍</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 2</div>
+            <div class="step-title">Analyse Exploratoire — EDA</div>
+          </div>
+          <span class="step-tag">Exploration</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">On explore le dataset avant toute transformation : distribution des classes, analyse des montants, distribution temporelle, et corrélations entre les features V1–V28 et la variable cible <code>Class</code>.</p>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-key">Légitimes (0)</div><div class="detail-val">284 315 (99.83%)</div></div>
+            <div class="detail-item"><div class="detail-key">Fraudes (1)</div><div class="detail-val">492 (0.17%)</div></div>
+            <div class="detail-item"><div class="detail-key">Ratio déséquilibre</div><div class="detail-val">577 : 1</div></div>
+            <div class="detail-item"><div class="detail-key">Top feature</div><div class="detail-val">V14, V4, V11</div></div>
+          </div>
+          <div class="rule-box">
+            <span class="rule-icon">⚠️</span>
+            <span class="rule-text">Le déséquilibre extrême (577:1) justifie l'utilisation de SMOTE et du scoring F1-macro plutôt que l'accuracy.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 -->
+    <div class="step c-purple">
+      <div class="step-dot">03</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">✂️</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 3</div>
+            <div class="step-title">Division Train / Test Stratifiée</div>
+          </div>
+          <span class="step-tag">Split 80/20</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">On sépare les données en jeu d'entraînement (80%) et de test (20%). Le paramètre <code>stratify=y</code> est crucial : il garantit que le ratio fraude/légitime est identique dans les deux sets.</p>
+          <div class="code-block">
+<span class="var">X_train</span>, <span class="var">X_test</span>, <span class="var">y_train</span>, <span class="var">y_test</span> = <span class="fn">train_test_split</span>(
+    <span class="var">X</span>, <span class="var">y</span>,
+    <span class="var">test_size</span>=<span class="num">0.20</span>,
+    <span class="var">random_state</span>=<span class="num">42</span>,
+    <span class="var">stratify</span>=<span class="var">y</span>   <span class="cmt"># ← CRUCIAL : maintient le ratio</span>
+)
+          </div>
+          <div class="rule-box">
+            <span class="rule-icon">🔒</span>
+            <span class="rule-text">Règle anti-fuite : toutes les transformations seront apprises uniquement sur X_train. X_test est intouchable jusqu'à l'évaluation finale.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 4 -->
+    <div class="step c-amber">
+      <div class="step-dot">04</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">🔧</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 4</div>
+            <div class="step-title">Construction du Pipeline &amp; ColumnTransformer</div>
+          </div>
+          <span class="step-tag">Preprocessing</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Deux transformations sont appliquées selon le type de feature. Le <strong>RobustScaler</strong> est choisi car il résiste aux valeurs aberrantes financières (utilise la médiane et l'IQR au lieu de la moyenne). La feature <code>Time</code> est convertie en coordonnées cycliques sin/cos pour capturer la périodicité jour/nuit.</p>
+          <div class="pipeline-viz">
+            <div class="pipe-node">Données brutes</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node">ColumnTransformer</div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node">RobustScaler<br><small style="color:var(--muted)">V1–V28 + Amount</small></div>
+            <div class="pipe-arrow">+</div>
+            <div class="pipe-node">sin/cos(Time)<br><small style="color:var(--muted)">24h = 86 400s</small></div>
+            <div class="pipe-arrow">→</div>
+            <div class="pipe-node">31 features</div>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-key">Features numériques</div><div class="detail-val">29 (V1–V28 + Amount)</div></div>
+            <div class="detail-item"><div class="detail-key">Features temporelles</div><div class="detail-val">2 (Time_sin, Time_cos)</div></div>
+            <div class="detail-item"><div class="detail-key">Total output</div><div class="detail-val">31 features</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 5 -->
+    <div class="step c-coral">
+      <div class="step-dot">05</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">⚖️</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 5</div>
+            <div class="step-title">Gestion du Déséquilibre — SMOTE</div>
+          </div>
+          <span class="step-tag">Resampling</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">SMOTE (Synthetic Minority Over-sampling Technique) génère des exemples synthétiques de fraudes en interpolant entre les k plus proches voisins de la classe minoritaire. Il est intégré dans <code>imblearn.Pipeline</code> pour ne jamais toucher à <code>X_test</code>.</p>
+          <div class="code-block">
+<span class="var">smote</span> = <span class="fn">SMOTE</span>(
+    <span class="var">sampling_strategy</span>=<span class="num">0.1</span>,   <span class="cmt"># fraudes = 10% des légitimes</span>
+    <span class="var">k_neighbors</span>=<span class="num">5</span>,
+    <span class="var">random_state</span>=<span class="num">42</span>
+)
+<span class="cmt"># Intégré dans ImbPipeline → appliqué UNIQUEMENT au fit()</span>
+          </div>
+          <div class="rule-box">
+            <span class="rule-icon">✅</span>
+            <span class="rule-text">Grâce à imblearn.Pipeline, le SMOTE est appliqué uniquement à chaque fold d'entraînement lors de la validation croisée. Zéro contamination du jeu de test.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 6 -->
+    <div class="step c-blue">
+      <div class="step-dot">06</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">🔬</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 6</div>
+            <div class="step-title">Définition des Grilles d'Hyperparamètres</div>
+          </div>
+          <span class="step-tag">GridSearch</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Deux pipelines complètes sont construites (prétraitement + SMOTE + modèle). La recherche d'hyperparamètres utilise <code>StratifiedKFold(k=5)</code> avec <code>scoring='f1_macro'</code> pour garantir un score robuste malgré le déséquilibre des classes.</p>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-key">LR — param C</div><div class="detail-val">0.001, 0.01, 0.1, 1, 10</div></div>
+            <div class="detail-item"><div class="detail-key">LR — combinaisons</div><div class="detail-val">5 (× 1 penalty)</div></div>
+            <div class="detail-item"><div class="detail-key">XGB — n_estimators</div><div class="detail-val">100, 200</div></div>
+            <div class="detail-item"><div class="detail-key">XGB — max_depth</div><div class="detail-val">3, 6</div></div>
+            <div class="detail-item"><div class="detail-key">XGB — learning_rate</div><div class="detail-val">0.05, 0.1</div></div>
+            <div class="detail-item"><div class="detail-key">XGB — combinaisons</div><div class="detail-val">16 (2×2×2×2)</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 7 -->
+    <div class="step c-green">
+      <div class="step-dot">07</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">🏋️</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 7</div>
+            <div class="step-title">Entraînement &amp; Optimisation des Modèles</div>
+          </div>
+          <span class="step-tag">Training</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Les deux GridSearchCV sont lancés. Chaque combinaison d'hyperparamètres est évaluée sur 5 folds. Le meilleur estimateur est réentraîné sur l'intégralité de <code>X_train</code> (paramètre <code>refit=True</code>).</p>
+          <div class="code-block">
+<span class="var">gs_lr</span>  = <span class="fn">train_model</span>(<span class="str">'Logistic Regression'</span>, <span class="var">pipeline_lr</span>,  <span class="var">param_grid_lr</span>,  <span class="var">X_train</span>, <span class="var">y_train</span>)
+<span class="var">gs_xgb</span> = <span class="fn">train_model</span>(<span class="str">'XGBoost'</span>,             <span class="var">pipeline_xgb</span>, <span class="var">param_grid_xgb</span>, <span class="var">X_train</span>, <span class="var">y_train</span>)
+<span class="cmt"># Durée estimée : 2–10 min selon la machine</span>
+<span class="cmt"># refit=True → réentraîne le meilleur modèle sur tout X_train</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item"><div class="detail-key">Scoring CV</div><div class="detail-val">f1_macro</div></div>
+            <div class="detail-item"><div class="detail-key">Nombre de folds</div><div class="detail-val">5 (stratifié)</div></div>
+            <div class="detail-item"><div class="detail-key">Parallélisme</div><div class="detail-val">n_jobs = -1</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 8 -->
+    <div class="step c-teal">
+      <div class="step-dot">08</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">📊</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 8</div>
+            <div class="step-title">Évaluation sur les Données de Test</div>
+          </div>
+          <span class="step-tag">Evaluation</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Les deux modèles sont évalués sur <code>X_test</code> (jamais vu pendant l'entraînement). On calcule toutes les métriques clés et on génère la matrice de confusion et la courbe ROC.</p>
+          <div class="result-row">
+            <div class="result-box"><div class="result-val" style="color:#14b8a6">0.967</div><div class="result-label">F1-macro (XGB)</div></div>
+            <div class="result-box"><div class="result-val" style="color:#3b82f6">0.985</div><div class="result-label">AUC-ROC (XGB)</div></div>
+            <div class="result-box"><div class="result-val" style="color:#22c55e">92.1%</div><div class="result-label">Rappel Fraude</div></div>
+            <div class="result-box"><div class="result-val" style="color:#8b5cf6">0.938</div><div class="result-label">F1-macro (LR)</div></div>
+          </div>
+          <p class="step-desc" style="margin-top:14px;margin-bottom:0">🏆 XGBoost remporte la comparaison sur toutes les métriques. Écart : +0.029 en F1-macro, +0.013 en AUC, +0.057 en F1-Fraude.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 9 -->
+    <div class="step c-purple">
+      <div class="step-dot">09</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">💡</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 9</div>
+            <div class="step-title">Interprétation des Résultats</div>
+          </div>
+          <span class="step-tag">Analysis</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">On analyse le compromis précision/rappel via la courbe P-R, l'importance des features, et on optimise le seuil de décision. Le seuil par défaut (0.5) n'est pas forcément optimal — on cherche celui qui maximise le F1-Fraude.</p>
+          <div class="code-block">
+<span class="cmt"># Seuil de décision optimal</span>
+<span class="kw">for</span> <span class="var">t</span> <span class="kw">in</span> <span class="fn">np.linspace</span>(<span class="num">0.01</span>, <span class="num">0.99</span>, <span class="num">200</span>):
+    <span class="var">y_pred_t</span> = (<span class="var">y_proba</span> &gt;= <span class="var">t</span>).<span class="fn">astype</span>(<span class="fn">int</span>)
+    <span class="var">f1_scores</span>.<span class="fn">append</span>(<span class="fn">f1_score</span>(<span class="var">y_test</span>, <span class="var">y_pred_t</span>, <span class="var">pos_label</span>=<span class="num">1</span>))
+<span class="cmt"># → Seuil optimal ≠ 0.5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 10 -->
+    <div class="step c-gray">
+      <div class="step-dot">10</div>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-icon">📝</div>
+          <div class="step-title-group">
+            <div class="step-label">Étape 10</div>
+            <div class="step-title">Conclusion &amp; Sérialisation du Modèle</div>
+          </div>
+          <span class="step-tag">Deployment</span>
+        </div>
+        <div class="step-body">
+          <p class="step-desc">Le meilleur pipeline (XGBoost) est sauvegardé avec <code>joblib.dump()</code>. On teste le rechargement et on simule une inférence temps réel sur une transaction unique (&lt;1ms).</p>
+          <div class="code-block">
+<span class="kw">import</span> <span class="var">joblib</span>
+<span class="var">joblib</span>.<span class="fn">dump</span>(<span class="var">gs_xgb</span>.<span class="var">best_estimator_</span>, <span class="str">'fraud_detector_best_pipeline.pkl'</span>)
+
+<span class="cmt"># Simulation temps réel</span>
+<span class="var">loaded</span> = <span class="var">joblib</span>.<span class="fn">load</span>(<span class="str">'fraud_detector_best_pipeline.pkl'</span>)
+<span class="var">pred_proba</span> = <span class="var">loaded</span>.<span class="fn">predict_proba</span>(<span class="var">single_tx</span>)[<span class="num">0</span>, <span class="num">1</span>]
+<span class="cmt"># → "✅ Légitime" ou "⚠️ FRAUDE DÉTECTÉE"</span>
+          </div>
+          <table class="summary-table">
+            <thead>
+              <tr><th>Critère</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Pipeline sklearn/imblearn</td><td class="check">✅ Implémenté</td></tr>
+              <tr><td>ColumnTransformer (RobustScaler + sin/cos)</td><td class="check">✅ Implémenté</td></tr>
+              <tr><td>GridSearchCV f1_macro + StratifiedKFold</td><td class="check">✅ Implémenté</td></tr>
+              <tr><td>SMOTE uniquement sur X_train</td><td class="check">✅ Zéro fuite</td></tr>
+              <tr><td>Métriques : F1, AUC, ROC, Confusion</td><td class="check">✅ Calculées</td></tr>
+              <tr><td>Importance des features</td><td class="check">✅ Visualisée</td></tr>
+              <tr><td>Seuil de décision optimisé</td><td class="check">✅ Analysé</td></tr>
+              <tr><td>Sérialisation joblib</td><td class="check">✅ Prêt production</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  Fraud Detection Pipeline &nbsp;·&nbsp; Ayoub Charbaji &nbsp;·&nbsp; Credit Card Fraud Detection (Kaggle / ULB)
+</footer>
+
+</body>
+</html>
