@@ -1,0 +1,9 @@
+# Data
+*.csv
+*.pkl
+
+# Python
+__pycache__/
+.ipynb_checkpoints/
+venv/
+*.pyc
